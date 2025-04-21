@@ -39,8 +39,12 @@ public class ProductAdminController {
     @GetMapping
     public ResponseEntity<Page<ProductResponseDto>> listProducts(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Page<ProductResponseDto> productPage = productService.findPaginatedProducts(PageRequest.of(page, size));
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search) { // Thêm tham số search
+        Page<ProductResponseDto> productPage = productService.findPaginatedProducts(
+                PageRequest.of(page, size),
+                search
+        );
         return ResponseEntity.ok(productPage);
     }
     /**

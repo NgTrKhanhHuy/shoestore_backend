@@ -15,6 +15,7 @@ public class ProductResponseDto {
     private Long categoryId;
     private List<ProductVariantResponseDto> variants;
 
+
     @Data
     public static class ProductVariantResponseDto {
         private Long id;

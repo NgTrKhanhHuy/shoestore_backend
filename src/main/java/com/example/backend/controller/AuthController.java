@@ -138,13 +138,14 @@ public class AuthController {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
             result.put("user", Map.of(
+                    "id", userDetails.getId(), // Thêm id
                     "email", userDetails.getEmail(),
                     "username", userDetails.getUsername() //  lấy username thực tế
             ));
             return ResponseEntity.ok(result);
 
         } catch (AuthenticationException ex) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Sai email hoặc mật khẩu!");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Sai mật khẩu!");
         }
     }
     @GetMapping("/profile")
@@ -169,7 +170,11 @@ public class AuthController {
     public ResponseEntity<?> logoutUser(HttpServletRequest request, HttpServletResponse response) {
         // Invalidate session để đăng xuất người dùng
         request.getSession().invalidate();
-
+// Xóa JSESSIONID cookie
+        Cookie sessionCookie = new Cookie("JSESSIONID", null);
+        sessionCookie.setPath("/");
+        sessionCookie.setMaxAge(0);
+        response.addCookie(sessionCookie);
         // Xóa cookie "userRole"
         Cookie userRoleCookie = new Cookie("userRole", null);
         userRoleCookie.setPath("/");         // Đảm bảo đường dẫn giống như khi set cookie

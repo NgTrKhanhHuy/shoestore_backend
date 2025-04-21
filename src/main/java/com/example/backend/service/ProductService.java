@@ -9,7 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
@@ -35,9 +37,56 @@ public class ProductService {
     private  ProductVariantRepository productVariantRepository;
 
 
-    public Page<ProductResponseDto> findPaginatedProducts(Pageable pageable) {
-        return productRepository.findAll(pageable).map(this::convertToDto);
+//    public Page<ProductResponseDto> findPaginatedProducts(Pageable pageable) {
+//        return productRepository.findAll(pageable).map(this::convertToDto);
+//    }
+public Page<ProductResponseDto> findPaginatedProducts(Pageable pageable, String search) {
+    Specification<Product> spec = createSearchSpecification(search);
+    return productRepository.findAll(spec, pageable).map(this::convertToDto);
+}
+    // Hàm mới dành cho public (có cả search và category filter)
+    public Page<ProductResponseDto> findPaginatedProductsForPublic(
+            Pageable pageable,
+            String search,
+            Long categoryId
+    ) {
+        Specification<Product> spec = Specification.where(createSearchSpecification(search))
+                .and(createCategorySpecification(categoryId));
+        return productRepository.findAll(spec, pageable).map(this::convertToDto);
     }
+    private Specification<Product> createCategorySpecification(Long categoryId) {
+        return (root, query, criteriaBuilder) -> {
+            if (categoryId == null) {
+                return criteriaBuilder.conjunction();
+            }
+            return criteriaBuilder.equal(root.get("category").get("id"), categoryId);
+        };
+    }
+
+    private Specification<Product> createSearchSpecification(String search) {
+        return (root, query, criteriaBuilder) -> {
+            if (search == null || search.trim().isEmpty()) {
+                return criteriaBuilder.conjunction();
+            }
+            return criteriaBuilder.like(
+                    criteriaBuilder.lower(root.get("name")),
+                    "%" + search.toLowerCase() + "%"
+            );
+        };
+    }
+//    tim kiem theo 2 truong la name va mo ta
+//    private Specification<Product> createSearchSpecification(String search) {
+//        return (root, query, criteriaBuilder) -> {
+//            if (search == null || search.trim().isEmpty()) {
+//                return criteriaBuilder.conjunction();
+//            }
+//            String pattern = "%" + search.toLowerCase() + "%";
+//            return criteriaBuilder.or(
+//                    criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), pattern),
+//                    criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), pattern)
+//            );
+//        };
+//    }
 
     public ProductResponseDto convertToDto(Product product) {
         ProductResponseDto dto = new ProductResponseDto();
