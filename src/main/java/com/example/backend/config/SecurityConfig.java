@@ -26,7 +26,7 @@ public class SecurityConfig {
                                 .requestMatchers("/","/api/**","/uploads/**","/api/auth/**","/api/auth/logout","/api/auth/register", "/api/auth/login", "/api/auth/check-email", "/api/auth/check-username").permitAll()
 //                        .anyRequest().permitAll()
                                 .requestMatchers(HttpMethod.GET, "/api/admin/products/**","/api/admin/categories/**").permitAll()
-
+                                .requestMatchers("/api/cart/**","/api/checkout/**","/api/orders/**","/api/user/**").authenticated() // Yêu cầu xác thực cho giỏ hàng
                                 .requestMatchers("/api/admin/**")
 //                                .permitAll()
                                 .hasRole("ADMIN").anyRequest().authenticated()
