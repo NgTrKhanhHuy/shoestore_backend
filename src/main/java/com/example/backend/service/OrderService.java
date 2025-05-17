@@ -1,6 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.dto.CheckoutDTO;
+import com.example.backend.dto.CustomerInfoDTO;
 import com.example.backend.dto.OrderDTO;
 import com.example.backend.dto.OrderItemDTO;
 import com.example.backend.entity.*;
@@ -11,7 +12,8 @@ import com.example.backend.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -29,7 +31,7 @@ public class OrderService {
     @Autowired
     private CartItemRepository cartItemRepository;
 
-
+@Transactional
     public Order createOrder(CheckoutDTO dto, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -50,6 +52,15 @@ public class OrderService {
             ProductVariant variant = variantRepository.findById(itemDTO.getVariantId())
                     .orElseThrow(() -> new RuntimeException("Variant not found"));
 
+            // Kiểm tra số lượng tồn kho
+            if (variant.getStock() < itemDTO.getQuantity()) {
+                throw new RuntimeException("Số lượng sản phẩm " + variant.getId() + " không đủ");
+            }
+
+            // Trừ số lượng trong kho
+            variant.setStock(variant.getStock() - itemDTO.getQuantity());
+            variantRepository.save(variant);
+
             double discountedPrice = variant.getProduct().getPrice() * (1 - variant.getProduct().getDiscount() / 100.0);
             double totalPrice = discountedPrice * itemDTO.getQuantity();
 
@@ -57,7 +68,7 @@ public class OrderService {
             item.setVariantId(variant.getId());
             item.setQuantity(itemDTO.getQuantity());
             item.setPrice(totalPrice);
-            item.setOrder(savedOrder); // ✅ Không còn lỗi ở đây
+            item.setOrder(savedOrder);
             items.add(item);
         }
 
@@ -87,12 +98,22 @@ public class OrderService {
 
 
     // Cập nhật trạng thái đơn hàng
+//    public void updateOrderStatus(Long orderId, OrderStatus status) {
+//        Optional<Order> orderOptional = orderRepository.findById(orderId);
+//        if (orderOptional.isPresent()) {
+//            Order order = orderOptional.get();
+//            order.setStatus(status);
+//            orderRepository.save(order);
+//        }
+//    }
     public void updateOrderStatus(Long orderId, OrderStatus status) {
         Optional<Order> orderOptional = orderRepository.findById(orderId);
         if (orderOptional.isPresent()) {
             Order order = orderOptional.get();
             order.setStatus(status);
             orderRepository.save(order);
+        } else {
+            throw new RuntimeException("Đơn hàng không tồn tại");
         }
     }
     private OrderDTO convertToDTO(Order order) {
@@ -101,6 +122,13 @@ public class OrderService {
         dto.setAddress(order.getAddress());
         dto.setPhone(order.getPhone());
         dto.setCreatedAt(order.getCreatedAt());
+
+        // Thêm thông tin khách hàng
+        CustomerInfoDTO customerInfo = new CustomerInfoDTO();
+        customerInfo.setName(order.getUser().getUsername());
+        customerInfo.setEmail(order.getUser().getEmail());
+        dto.setCustomerInfo(customerInfo);
+
 // Lấy giá trị số từ enum OrderStatus
         dto.setStatus(order.getStatus().getStatusCode());  // Chuyển enum thành số
         List<OrderItemDTO> itemDTOs = order.getItems().stream().map(item -> {
@@ -113,6 +141,51 @@ public class OrderService {
 
         dto.setItems(itemDTOs);
         return dto;
+    }
+    public Page<OrderDTO> getAllOrders(Pageable pageable, String search) {
+        Page<Order> orders;
+        if (search == null || search.trim().isEmpty()) {
+            orders = orderRepository.findAll(pageable);
+        } else {
+            orders = orderRepository.findByPhoneContainingIgnoreCase(search, pageable);
+        }
+        return orders.map(this::convertToDTO);
+    }
+
+    @Transactional
+    public void cancelOrderByUser(Long orderId, Long userId) {
+        Optional<Order> orderOptional = orderRepository.findByIdAndUserId(orderId, userId);
+
+        if (orderOptional.isEmpty()) {
+            throw new RuntimeException("Đơn hàng không tồn tại hoặc không thuộc về bạn");
+        }
+
+        Order order = orderOptional.get();
+
+        // Chỉ cho phép hủy khi đơn ở trạng thái CREATED(0) hoặc PROCESSING(1)
+        if (order.getStatus() != OrderStatus.CREATED && order.getStatus() != OrderStatus.PROCESSING) {
+            throw new RuntimeException("Chỉ có thể hủy đơn hàng khi đang ở trạng thái Chờ xử lý hoặc Đang chuẩn bị");
+        }
+
+        // Tái sử dụng hàm updateOrderStatus có sẵn
+        updateOrderStatus(orderId, OrderStatus.CANCELLED);
+
+        // Có thể thêm logic hoàn trả số lượng sản phẩm vào kho nếu cần
+        restoreProductQuantities(order);
+    }
+
+    private void restoreProductQuantities(Order order) {
+        for (OrderItem item : order.getItems()) {
+            ProductVariant variant = variantRepository.findById(item.getVariantId())
+                    .orElseThrow(() -> new RuntimeException("Variant not found"));
+            variant.setStock(variant.getStock() + item.getQuantity());
+            variantRepository.save(variant);
+        }
+    }
+    // Trong OrderService.java
+    public Optional<OrderDTO> getOrderById(Long orderId) {
+        return orderRepository.findById(orderId)
+                .map(this::convertToDTO);
     }
 
 }

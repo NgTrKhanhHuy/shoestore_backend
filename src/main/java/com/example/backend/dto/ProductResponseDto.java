@@ -15,6 +15,8 @@ public class ProductResponseDto {
     private Long categoryId;
     private List<ProductVariantResponseDto> variants;
 
+    private int totalSold;
+
 
     @Data
     public static class ProductVariantResponseDto {
@@ -118,5 +120,13 @@ public class ProductResponseDto {
 
     public void setVariants(List<ProductVariantResponseDto> variants) {
         this.variants = variants;
+    }
+
+    public int getTotalSold() {
+        return totalSold;
+    }
+
+    public void setTotalSold(int totalSold) {
+        this.totalSold = totalSold;
     }
 }

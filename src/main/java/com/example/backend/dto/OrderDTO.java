@@ -13,6 +13,7 @@ public class OrderDTO {
     private LocalDateTime createdAt;
     private int status;
     private List<OrderItemDTO> items;
+    private CustomerInfoDTO customerInfo; // Thêm trường này
 
     // Getters & Setters
     public Long getId() {
@@ -61,5 +62,13 @@ public class OrderDTO {
 
     public void setItems(List<OrderItemDTO> items) {
         this.items = items;
+    }
+
+    public CustomerInfoDTO getCustomerInfo() {
+        return customerInfo;
+    }
+
+    public void setCustomerInfo(CustomerInfoDTO customerInfo) {
+        this.customerInfo = customerInfo;
     }
 }

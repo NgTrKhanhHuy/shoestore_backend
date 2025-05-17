@@ -10,7 +10,9 @@ import org.springframework.beans.factory.annotation.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -61,6 +63,24 @@ public class OrdersController {
         }
 
         return ResponseEntity.ok(order);
+    }
+    @PutMapping("/{orderId}/cancel")
+    public ResponseEntity<?> cancelOrder(@PathVariable Long orderId) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            // Kiểm tra nếu người dùng đã đăng nhập
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Người dùng không được xác thực!");
+            }
+
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            Long userId = userDetails.getId();
+            orderService.cancelOrderByUser(orderId, userId);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }
 

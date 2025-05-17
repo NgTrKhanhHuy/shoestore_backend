@@ -10,6 +10,7 @@ import com.example.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -143,17 +144,33 @@ public class CartService {
 
     @Transactional
     public CartDTO removeCartItem(Long userId, Long variantId) {
+        System.out.println("Bắt đầu xóa mục giỏ hàng: userId=" + userId + ", variantId=" + variantId);
+        System.out.println("Transaction active: " + TransactionSynchronizationManager.isActualTransactionActive());
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Cart cart = cartRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
 
+        System.out.println("Cart ID: " + cart.getId());
+
         Optional<CartItem> optionalCartItem = cartItemRepository.findByCartIdAndProductVariantId(cart.getId(), variantId);
         if (optionalCartItem.isPresent()) {
-            cartItemRepository.delete(optionalCartItem.get());
+            CartItem cartItem = optionalCartItem.get();
+            System.out.println("Tìm thấy CartItem: id=" + cartItem.getId());
+            cartItemRepository.delete(cartItem); // Sử dụng delete trực tiếp
+            System.out.println("Đã gọi xóa CartItem: id=" + cartItem.getId());
+            // Kiểm tra xem bản ghi đã xóa chưa
+            Optional<CartItem> afterDelete = cartItemRepository.findByCartIdAndProductVariantId(cart.getId(), variantId);
+            if (afterDelete.isPresent()) {
+                System.err.println("Lỗi: CartItem id=" + cartItem.getId() + " vẫn tồn tại sau khi xóa");
+                throw new RuntimeException("Không thể xóa CartItem id=" + cartItem.getId());
+            } else {
+                System.out.println("Xác nhận: CartItem id=" + cartItem.getId() + " đã được xóa");
+            }
         } else {
-            throw new RuntimeException("Cart item not found");
+            System.out.println("Không tìm thấy CartItem với cartId=" + cart.getId() + " và variantId=" + variantId);
         }
 
         return convertToCartDTO(cart);

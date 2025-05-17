@@ -70,10 +70,13 @@ public class CartController {
         Long userId = userDetails.getId();
 
         try {
+            System.out.println("Gọi API xóa: userId=" + userId + ", variantId=" + variantId);
             CartDTO cartDTO = cartService.removeCartItem(userId, variantId);
+            System.out.println("Xóa thành công: " + cartDTO);
             return ResponseEntity.ok(cartDTO);
         } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            System.err.println("Lỗi khi xóa mục giỏ hàng: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new CartDTO());
         }
     }
 

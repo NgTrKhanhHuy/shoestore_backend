@@ -28,12 +28,13 @@ public class ProductController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) Long categoryId) { // Thêm param categoryId
-
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) List<String> sizes) { // Add sizes parameter
         return ResponseEntity.ok(productService.findPaginatedProductsForPublic(
                 PageRequest.of(page, size),
                 search,
-                categoryId
+                categoryId,
+                sizes
         ));
     }
     @GetMapping("/{productId}")

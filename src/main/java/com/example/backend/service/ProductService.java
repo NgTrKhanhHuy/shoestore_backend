@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,11 +34,14 @@ public class ProductService {
 
     private  SizeRepository sizeRepository;
     @Autowired
-
     private  ProductVariantRepository productVariantRepository;
 
+    @Autowired
+    private OrderItemRepository orderItemRepository;
 
-//    public Page<ProductResponseDto> findPaginatedProducts(Pageable pageable) {
+
+
+    //    public Page<ProductResponseDto> findPaginatedProducts(Pageable pageable) {
 //        return productRepository.findAll(pageable).map(this::convertToDto);
 //    }
 public Page<ProductResponseDto> findPaginatedProducts(Pageable pageable, String search) {
@@ -48,10 +52,12 @@ public Page<ProductResponseDto> findPaginatedProducts(Pageable pageable, String 
     public Page<ProductResponseDto> findPaginatedProductsForPublic(
             Pageable pageable,
             String search,
-            Long categoryId
+            Long categoryId,
+            List<String> sizes
     ) {
         Specification<Product> spec = Specification.where(createSearchSpecification(search))
-                .and(createCategorySpecification(categoryId));
+                .and(createCategorySpecification(categoryId))
+                .and(createSizeSpecification(sizes));
         return productRepository.findAll(spec, pageable).map(this::convertToDto);
     }
     private Specification<Product> createCategorySpecification(Long categoryId) {
@@ -74,6 +80,16 @@ public Page<ProductResponseDto> findPaginatedProducts(Pageable pageable, String 
             );
         };
     }
+    private Specification<Product> createSizeSpecification(List<String> sizes) {
+        return (root, query, criteriaBuilder) -> {
+            if (sizes == null || sizes.isEmpty()) {
+                return criteriaBuilder.conjunction();
+            }
+            query.distinct(true); // Avoid duplicate products
+            // Join with variants and filter by size
+            return root.join("variants").get("size").get("value").in(sizes);
+        };
+    }
 //    tim kiem theo 2 truong la name va mo ta
 //    private Specification<Product> createSearchSpecification(String search) {
 //        return (root, query, criteriaBuilder) -> {
@@ -88,32 +104,76 @@ public Page<ProductResponseDto> findPaginatedProducts(Pageable pageable, String 
 //        };
 //    }
 
-    public ProductResponseDto convertToDto(Product product) {
-        ProductResponseDto dto = new ProductResponseDto();
-        dto.setId(product.getId());
-        dto.setName(product.getName());
-        dto.setDescription(product.getDescription());
-        dto.setPrice(product.getPrice());
-        dto.setImageUrl(product.getImageUrl());
-        System.out.println(product.getImageUrl());
-        dto.setDiscount(product.getDiscount());
-        dto.setCategoryId(product.getCategory() != null ? product.getCategory().getId() : null);
+//    public ProductResponseDto convertToDto(Product product) {
+//        ProductResponseDto dto = new ProductResponseDto();
+//        dto.setId(product.getId());
+//        dto.setName(product.getName());
+//        dto.setDescription(product.getDescription());
+//        dto.setPrice(product.getPrice());
+//        dto.setImageUrl(product.getImageUrl());
+//        dto.setDiscount(product.getDiscount());
+//        dto.setCategoryId(product.getCategory() != null ? product.getCategory().getId() : null);
+//
+//
+//        // Chuyển đổi các variant (lọc theo sizes nếu cần)
+//        List<ProductResponseDto.ProductVariantResponseDto> variantDtos =
+//                product.getVariants().stream()
+//                        .filter(variant -> {
+//                            // Nếu sizes được cung cấp, chỉ giữ các variant có size khớp
+//                            // Comment dòng dưới nếu muốn giữ tất cả variants
+//                            // return sizes == null || sizes.isEmpty() || sizes.contains(variant.getSize().getValue());
+//                            return true; // Giữ tất cả variants
+//                        })
+//                        .map(variant -> {
+//                            ProductResponseDto.ProductVariantResponseDto vDto = new ProductResponseDto.ProductVariantResponseDto();
+//                            vDto.setId(variant.getId());
+//                            vDto.setStock(variant.getStock());
+//                            vDto.setSize(variant.getSize() != null ? variant.getSize().getValue() : null);
+//                            vDto.setColor(variant.getColor() != null ? variant.getColor().getName() : null);
+//
+//                            return vDto;
+//                        })
+//                        .toList();
+//        dto.setVariants(variantDtos);
+//        return dto;
+//    }
+public ProductResponseDto convertToDto(Product product) {
+    ProductResponseDto dto = new ProductResponseDto();
+    dto.setId(product.getId());
+    dto.setName(product.getName());
+    dto.setDescription(product.getDescription());
+    dto.setPrice(product.getPrice());
+    dto.setImageUrl(product.getImageUrl());
+    dto.setDiscount(product.getDiscount());
+    dto.setCategoryId(product.getCategory() != null ? product.getCategory().getId() : null);
 
-        // Chuyển đổi các variant
-        List<ProductResponseDto.ProductVariantResponseDto> variantDtos =
-                product.getVariants().stream().map(variant -> {
-                    ProductResponseDto.ProductVariantResponseDto vDto = new ProductResponseDto.ProductVariantResponseDto();
-                    vDto.setId(variant.getId());
-                    vDto.setStock(variant.getStock());
-                    vDto.setSize(variant.getSize() != null ? variant.getSize().getValue() : null);
-                    vDto.setColor(variant.getColor() != null ? variant.getColor().getName() : null);
-                    return vDto;
-                }).toList();
-        dto.setVariants(variantDtos);
-        return dto;
+    List<ProductResponseDto.ProductVariantResponseDto> variantDtos = new ArrayList<>();
+    int totalSold = 0;
+
+    // Duyệt từng variant, build DTO và cộng tổng đã bán
+    for (ProductVariant variant : product.getVariants()) {
+        ProductResponseDto.ProductVariantResponseDto vDto =
+                new ProductResponseDto.ProductVariantResponseDto();
+        vDto.setId(variant.getId());
+        vDto.setStock(variant.getStock());
+        vDto.setSize(variant.getSize() != null ? variant.getSize().getValue() : null);
+        vDto.setColor(variant.getColor() != null ? variant.getColor().getName() : null);
+
+        // Gọi repository đúng method
+        Integer soldCount = orderItemRepository
+                .sumSoldByVariantAndStatus(
+                        variant.getId(),
+                        OrderStatus.DELIVERED      // truyền enum, không .getStatusCode()
+                );
+        totalSold += (soldCount != null ? soldCount : 0);
+
+        variantDtos.add(vDto);
     }
 
-    // Đường dẫn thư mục lưu ảnh (user.dir + /uploads/images/)
+    dto.setVariants(variantDtos);
+    dto.setTotalSold(totalSold);
+    return dto;
+}    // Đường dẫn thư mục lưu ảnh (user.dir + /uploads/images/)
     private final String uploadDir = System.getProperty("user.dir") + "/uploads/images";
 
     public Product createProduct(ProductRequestDTO dto, MultipartFile file) throws IOException {

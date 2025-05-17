@@ -140,7 +140,8 @@ public class AuthController {
             result.put("user", Map.of(
                     "id", userDetails.getId(), // Thêm id
                     "email", userDetails.getEmail(),
-                    "username", userDetails.getUsername() //  lấy username thực tế
+                    "username", userDetails.getUsername(), //  lấy username thực tế
+                    "role", userDetails.getAuthorities()
             ));
             return ResponseEntity.ok(result);
 
