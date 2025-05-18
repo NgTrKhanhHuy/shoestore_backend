@@ -65,7 +65,11 @@ public Page<ProductResponseDto> findPaginatedProducts(Pageable pageable, String 
             if (categoryId == null) {
                 return criteriaBuilder.conjunction();
             }
-            return criteriaBuilder.equal(root.get("category").get("id"), categoryId);
+            List<Long> allCategoryIds = categoryRepository.findAllSubCategoryIds(categoryId);
+            if (allCategoryIds.isEmpty()) {
+                return criteriaBuilder.disjunction(); // Trả về điều kiện không thỏa mãn nếu không có category
+            }
+            return root.get("category").get("id").in(allCategoryIds);
         };
     }
 
@@ -90,53 +94,7 @@ public Page<ProductResponseDto> findPaginatedProducts(Pageable pageable, String 
             return root.join("variants").get("size").get("value").in(sizes);
         };
     }
-//    tim kiem theo 2 truong la name va mo ta
-//    private Specification<Product> createSearchSpecification(String search) {
-//        return (root, query, criteriaBuilder) -> {
-//            if (search == null || search.trim().isEmpty()) {
-//                return criteriaBuilder.conjunction();
-//            }
-//            String pattern = "%" + search.toLowerCase() + "%";
-//            return criteriaBuilder.or(
-//                    criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), pattern),
-//                    criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), pattern)
-//            );
-//        };
-//    }
 
-//    public ProductResponseDto convertToDto(Product product) {
-//        ProductResponseDto dto = new ProductResponseDto();
-//        dto.setId(product.getId());
-//        dto.setName(product.getName());
-//        dto.setDescription(product.getDescription());
-//        dto.setPrice(product.getPrice());
-//        dto.setImageUrl(product.getImageUrl());
-//        dto.setDiscount(product.getDiscount());
-//        dto.setCategoryId(product.getCategory() != null ? product.getCategory().getId() : null);
-//
-//
-//        // Chuyển đổi các variant (lọc theo sizes nếu cần)
-//        List<ProductResponseDto.ProductVariantResponseDto> variantDtos =
-//                product.getVariants().stream()
-//                        .filter(variant -> {
-//                            // Nếu sizes được cung cấp, chỉ giữ các variant có size khớp
-//                            // Comment dòng dưới nếu muốn giữ tất cả variants
-//                            // return sizes == null || sizes.isEmpty() || sizes.contains(variant.getSize().getValue());
-//                            return true; // Giữ tất cả variants
-//                        })
-//                        .map(variant -> {
-//                            ProductResponseDto.ProductVariantResponseDto vDto = new ProductResponseDto.ProductVariantResponseDto();
-//                            vDto.setId(variant.getId());
-//                            vDto.setStock(variant.getStock());
-//                            vDto.setSize(variant.getSize() != null ? variant.getSize().getValue() : null);
-//                            vDto.setColor(variant.getColor() != null ? variant.getColor().getName() : null);
-//
-//                            return vDto;
-//                        })
-//                        .toList();
-//        dto.setVariants(variantDtos);
-//        return dto;
-//    }
 public ProductResponseDto convertToDto(Product product) {
     ProductResponseDto dto = new ProductResponseDto();
     dto.setId(product.getId());
