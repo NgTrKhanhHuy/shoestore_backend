@@ -18,4 +18,10 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
             "INNER JOIN subcategories s ON c.parent_id = s.id) " +
             "SELECT id FROM subcategories", nativeQuery = true)
     List<Long> findAllSubCategoryIds(@Param("categoryId") Long categoryId);
+
+    boolean existsByNameAndParent(String name, Category parent);
+
+    boolean existsByNameAndParentIsNull(String name);
+
+
 }

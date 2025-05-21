@@ -7,7 +7,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "categories")
+@Table( name = "categories",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"name", "parent_id"})
+        })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,7 +19,7 @@ public class Category {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
 
     @ManyToOne

@@ -32,10 +32,6 @@ public class CategoryService {
 //        return categoryRepository.save(category);
 //    }
     public Category create(CategoryDTO dto) {
-        if (categoryRepository.existsByName(dto.getName())) {
-            throw new IllegalArgumentException("Tên danh mục đã tồn tại");
-        }
-
         Category category = new Category();
         category.setName(dto.getName());
 
@@ -43,6 +39,14 @@ public class CategoryService {
             Category parent = categoryRepository.findById(dto.getParentId())
                     .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy danh mục cha"));
             category.setParent(parent);
+
+            if (categoryRepository.existsByNameAndParent(dto.getName(), parent)) {
+                throw new IllegalArgumentException("Tên danh mục đã tồn tại trong danh mục cha");
+            }
+        } else {
+            if (categoryRepository.existsByNameAndParentIsNull(dto.getName())) {
+                throw new IllegalArgumentException("Tên danh mục gốc đã tồn tại");
+            }
         }
 
         return categoryRepository.save(category);
